@@ -38,7 +38,7 @@ class Bot(commands.Bot):
 
         # load the database!
         self.db_engine = create_async_engine(f"sqlite+aiosqlite:///{self.config['DBPath']}")
-        self.db_session = async_sessionmaker(self.db_engine)
+        self.db_session = async_sessionmaker(self.db_engine, expire_on_commit=False)
 
         async with self.db_engine.begin() as conn:
             table_length = await conn.run_sync(
