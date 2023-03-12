@@ -7,6 +7,7 @@ name = "pypi"
 "discord.py" = {extras = ["speed"], version = "*"}
 sqlalchemy = "*"
 aiosqlite = "*"
+jishaku = "*"
 
 [dev-packages]
 
