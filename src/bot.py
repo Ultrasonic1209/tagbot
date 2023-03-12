@@ -15,7 +15,7 @@ import models
 
 discord.utils.setup_logging()
 
-extensions = tuple(("jishaku",))
+extensions = tuple(("jishaku", "tags"))
 
 configKeys = tuple(("botToken", "dbName"))
 
