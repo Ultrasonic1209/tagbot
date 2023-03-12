@@ -6,7 +6,10 @@ import discord
 from discord.ext import commands
 
 from sqlalchemy import inspect
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
+from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import models
 
@@ -24,15 +27,20 @@ class BotConfig(TypedDict):
     DBPath: str
 
 class Bot(commands.Bot):
-    engine: AsyncEngine
+    """
+    Adding extra attributes and a setup hook to Bot
+    """
+    db_engine: AsyncEngine
+    db_session: async_sessionmaker[AsyncSession]
     config: BotConfig
 
     async def setup_hook(self) -> None:
 
         # load the database!
-        self.engine = create_async_engine(f"sqlite+aiosqlite:///{self.config['DBPath']}")
+        self.db_engine = create_async_engine(f"sqlite+aiosqlite:///{self.config['DBPath']}")
+        self.db_session = async_sessionmaker(self.db_engine)
 
-        async with self.engine.begin() as conn:
+        async with self.db_engine.begin() as conn:
             table_length = await conn.run_sync(
                 lambda sync_conn: len(inspect(sync_conn).get_table_names())
             )
@@ -49,6 +57,26 @@ class Bot(commands.Bot):
                 logger.exception(f"Error loading extension {extension}")
             else:
                 logger.info(f"Extension {extension} loaded")
+
+class Message(discord.Message):
+    """
+    Making Message use the Bot subclass
+    """
+    bot: Bot
+
+class Context(commands.Context):
+    """
+    Making Context use the Bot subclass
+    """
+    bot: Bot
+    message: Message
+
+class Interaction(discord.Interaction):
+    """
+    Making Context use the Bot subclass
+    """
+    client: Bot
+
 
 
 if __name__ == "__main__":

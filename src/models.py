@@ -1,8 +1,13 @@
 
+from typing import Set
 from sqlalchemy import String
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import relationship
+
+__all__ = ["Base", "Tag", "Autoresponse"]
 
 class Base(DeclarativeBase):
     pass
@@ -10,10 +15,30 @@ class Base(DeclarativeBase):
 class Tag(Base):
     __tablename__ = "tag"
 
-    name: Mapped[str] = mapped_column(String(100), primary_key=True)
-    server_id: Mapped[int] = mapped_column(primary_key=True)
+    tag_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    name: Mapped[str] = mapped_column(String(100))
+    server_id: Mapped[int] = mapped_column(index=True)
     author_id: Mapped[int] = mapped_column()
     content: Mapped[str] = mapped_column(String(2000))
 
+    autoresponses: Mapped[Set["Autoresponse"]] = relationship(back_populates="tag")
+
     def __repr__(self) -> str:
         return f"Tag(name={self.name!r}, server_id={self.server_id!r}, author_id={self.author_id!r})"
+
+class Autoresponse(Base):
+    __tablename__ = "autoresponse"
+
+    response_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    server_id: Mapped[int] = mapped_column(index=True)
+
+    phrase: Mapped[str] = mapped_column(String(4000))
+    author_id: Mapped[int] = mapped_column()
+
+    tag_name: Mapped[str] = mapped_column(ForeignKey("tag.name"))
+    tag: Mapped["Tag"] = relationship(back_populates="autoresponses")
+
+    def __repr__(self) -> str:
+        return f"Autoresponse(tag={self.tag_name!r}, server_id={self.server_id!r}, author_id={self.author_id!r})"
+
