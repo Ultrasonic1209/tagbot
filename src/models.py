@@ -36,9 +36,9 @@ class Autoresponse(Base):
     phrase: Mapped[str] = mapped_column(String(4000))
     author_id: Mapped[int] = mapped_column()
 
-    tag_name: Mapped[str] = mapped_column(ForeignKey("tag.name"))
+    tag_id: Mapped[int] = mapped_column(ForeignKey("tag.tag_id"))
     tag: Mapped["Tag"] = relationship(back_populates="autoresponses")
 
     def __repr__(self) -> str:
-        return f"Autoresponse(tag={self.tag_name!r}, server_id={self.server_id!r}, author_id={self.author_id!r})"
+        return f"Autoresponse(tag={self.tag.name if self.tag else None!r}, server_id={self.server_id!r}, author_id={self.author_id!r})"
 
