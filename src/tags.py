@@ -19,13 +19,13 @@ async def tag_autocomplete(
         return []
 
     async with interaction.client.db_session.begin() as session:
-        tag_query = select(models.Tag).where(models.Tag.server_id == interaction.guild.id).with_hint(models.Autoresponse, 'USE INDEX col1_index')
-        tags = (await session.execute(tag_query)).scalars()
+        tag_query = select(models.Tag).where(models.Tag.server_id == interaction.guild.id).limit(25).with_hint(models.Autoresponse, 'USE INDEX col1_index')
+        tags = (await session.execute(tag_query)).scalars().all()
 
     return [
         app_commands.Choice(name=tag.name, value=tag.name)
         for tag in tags if current.lower() in tag.name.lower()
-    ][:25]
+    ]
 
 class Tags(commands.Cog):
     def __init__(self, bot: Bot):
@@ -39,7 +39,7 @@ class Tags(commands.Cog):
             return
 
         async with ctx.bot.db_session.begin() as session:
-            tag_query = select(models.Tag).where(models.Tag.server_id == ctx.guild.id).with_hint(models.Autoresponse, 'USE INDEX col1_index')
+            tag_query = select(models.Tag).where(models.Tag.server_id == ctx.guild.id).limit(1).with_hint(models.Autoresponse, 'USE INDEX col1_index')
             retrieved_tag = (await session.execute(tag_query)).scalar_one_or_none()
 
         if retrieved_tag is None:
@@ -56,7 +56,7 @@ class Tags(commands.Cog):
             return
         async with self.bot.db_session.begin() as session:
             autoresponse_query = select(models.Autoresponse).where(models.Autoresponse.server_id == message.guild.id).with_hint(models.Autoresponse, 'USE INDEX col1_index')
-            autoresponses = (await session.execute(autoresponse_query)).scalars()
+            autoresponses = (await session.execute(autoresponse_query)).scalars().all()
 
         for autoresponse in autoresponses:
             if autoresponse.phrase in message.content:
