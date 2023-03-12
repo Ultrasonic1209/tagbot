@@ -45,6 +45,8 @@ class Tags(commands.Cog):
         if retrieved_tag is None:
             return await ctx.reply("This tag does not exist.", ephemeral=True)
 
+        return await ctx.reply(retrieved_tag.content)
+
     @tag.autocomplete('tag') # type: ignore
     async def tagcmd_autocomplete(self, interaction: Interaction, current: str):
         return await tag_autocomplete(interaction, current)
@@ -58,9 +60,10 @@ class Tags(commands.Cog):
             autoresponse_query = select(models.Autoresponse).where(models.Autoresponse.server_id == message.guild.id).with_hint(models.Autoresponse, 'USE INDEX col1_index')
             autoresponses = (await session.execute(autoresponse_query)).scalars().all()
 
-        for autoresponse in autoresponses:
-            if autoresponse.phrase in message.content:
-                return await message.reply(content=autoresponse.tag.content)
+            for autoresponse in autoresponses:
+                if autoresponse.phrase in message.content:
+                    await session.refresh(autoresponse, ("tag",))
+                    return await message.reply(content=autoresponse.tag.content)
 
         
         
