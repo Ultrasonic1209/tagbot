@@ -18,7 +18,7 @@ from bot import Interaction
 
 class NewTagCreation(ui.Modal, title="New Tag"):
     def __init__(self, bot: Bot, tagName: str):
-        super().__init__(title="Create Tag")
+        super().__init__()
 
         self.bot = bot
 
