@@ -1,6 +1,6 @@
 
 from typing import Set
-from sqlalchemy import String
+from sqlalchemy import String, UniqueConstraint
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
@@ -21,6 +21,8 @@ class Tag(Base):
     server_id: Mapped[int] = mapped_column(index=True)
     author_id: Mapped[int] = mapped_column()
     content: Mapped[str] = mapped_column(String(2000))
+    
+    UniqueConstraint(server_id, name)
 
     autoresponses: Mapped[Set["Autoresponse"]] = relationship(back_populates="tag")
 
