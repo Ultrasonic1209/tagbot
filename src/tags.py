@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import discord
 from discord import ui
@@ -83,7 +83,7 @@ class Tags(commands.Cog):
     @app_commands.describe(tag="The tag to retrieve")
     @commands.guild_only()
     @commands.hybrid_command(name="tag", description="Get a tag!")
-    async def tag(self, ctx: Context, tag: str):
+    async def tag(self, ctx: Context, tag: str, target: Optional[discord.User] = None):
         if not ctx.guild:
             return
 
@@ -100,7 +100,33 @@ class Tags(commands.Cog):
         if retrieved_tag is None:
             return await ctx.reply("This tag does not exist.", ephemeral=True)
 
-        return await ctx.reply(retrieved_tag.content)
+        allowed_mentions = discord.AllowedMentions.none()
+        allowed_mentions.replied_user = True
+
+        if target:
+            allowed_mentions.users = [target]
+
+        embed = discord.Embed()
+        embed.title = retrieved_tag.name
+
+        if tag_author := self.bot.get_user(retrieved_tag.author_id) or await self.bot.fetch_user(retrieved_tag.author_id):
+            embed.author.name = tag_author.display_name
+            embed.author.icon_url = tag_author.display_avatar.url
+        else:
+            embed.author.name = str(retrieved_tag.author_id)
+        embed.author.url = f"discord://-/users/{retrieved_tag.author_id}"
+
+        embed.description = retrieved_tag.content
+
+        return await ctx.reply(
+            target.mention,
+            embed=embed,
+            allowed_mentions=allowed_mentions,
+            mention_author=False
+        ) if target else await ctx.reply(
+            embed=embed,
+            allowed_mentions=allowed_mentions
+        )
 
     @tag.autocomplete("tag")  # type: ignore
     async def tagcmd_autocomplete(self, interaction: Interaction, current: str):
