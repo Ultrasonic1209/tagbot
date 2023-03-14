@@ -14,10 +14,11 @@ __all__ = ["Base", "Tag", "Autoresponse"]
 
 import sqlalchemy.types as types
 
+
 class Regex(types.TypeDecorator):
-    '''Prefixes Unicode values with "PREFIX:" on the way in and
+    """Prefixes Unicode values with "PREFIX:" on the way in and
     strips it off on the way out.
-    '''
+    """
 
     impl = types.String
 
@@ -30,7 +31,8 @@ class Regex(types.TypeDecorator):
         return value.pattern
 
     def copy(self, **kw):
-        return Regex(self.impl.length) # type: ignore
+        return Regex(self.impl.length)  # type: ignore
+
 
 class Base(DeclarativeBase):
     pass
@@ -52,7 +54,11 @@ class Tag(Base):
     UniqueConstraint(server_id, name)
     PrimaryKeyConstraint(server_id, name)
 
-    autoresponses: Mapped[Set["Autoresponse"]] = relationship(back_populates="tag")
+    autoresponses: Mapped[Set["Autoresponse"]] = relationship(
+        back_populates="tag",
+        primaryjoin="and_(Tag.name==foreign(Autoresponse.tag_name), "
+        "Tag.server_id==foreign(Autoresponse.server_id))",
+    )
 
     def __repr__(self) -> str:
         return f"Tag(name={self.name!r}, server_id={self.server_id!r}, author_id={self.author_id!r})"
@@ -61,14 +67,18 @@ class Tag(Base):
 class Autoresponse(Base):
     __tablename__ = "autoresponse"
 
-    response_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    server_id: Mapped[int] = mapped_column(ForeignKey("tag.server_id"), index=True)
+    autoresponse_name: Mapped[str] = mapped_column(String(100), primary_key=True)
+    server_id: Mapped[int] = mapped_column(
+        ForeignKey("tag.server_id"), primary_key=True
+    )
+    tag_name: Mapped[str] = mapped_column(ForeignKey("tag.name"), primary_key=True)
 
     regex: Mapped[re.Pattern] = mapped_column(Regex(4000))
     author_id: Mapped[int] = mapped_column()
 
-    tag_name: Mapped[str] = mapped_column(ForeignKey("tag.name"))
-    tag: Mapped["Tag"] = relationship(back_populates="autoresponses")
+    tag: Mapped["Tag"] = relationship("Tag", back_populates="autoresponses",
+        primaryjoin="and_(Tag.name==foreign(Autoresponse.tag_name), "
+        "Tag.server_id==foreign(Autoresponse.server_id))",)
 
     def __repr__(self) -> str:
         return f"Autoresponse(tag={self.tag.name if self.tag else None!r}, server_id={self.server_id!r}, author_id={self.author_id!r})"

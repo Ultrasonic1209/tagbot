@@ -1,6 +1,5 @@
 import re
 from typing import List, Optional
-import datetime
 
 import discord
 from discord import ui
@@ -54,8 +53,10 @@ class TagCreator(ui.Modal, title="New Tag"):
                 "Your tag was created successfully.", ephemeral=True
             )
 
+
 class TagEditor(ui.Modal, title="Edit Tag"):
     tag_name: str
+
     def __init__(self, bot: Bot, tag_name: str, current_content: str):
         super().__init__()
 
@@ -72,8 +73,10 @@ class TagEditor(ui.Modal, title="Edit Tag"):
     async def on_submit(self, interaction: Interaction):
         try:
             async with self.bot.db_session.begin() as session:
-                tag = await session.get(models.Tag, (interaction.guild_id, self.tag_name))
-                
+                tag = await session.get(
+                    models.Tag, (interaction.guild_id, self.tag_name)
+                )
+
                 if tag:
                     tag.content = self.tagcontent.value
                 else:
@@ -101,32 +104,43 @@ class AutoresponseCreator(ui.Modal, title="New Autoresponse"):
 
         self.tagname.default = tagName
 
+    responsename = ui.TextInput(
+        label="Response ID",
+        style=discord.TextStyle.short,
+        max_length=100,
+        placeholder="pick something unique!",
+    )
+
     tagname = ui.TextInput(
         label="Tag name", style=discord.TextStyle.short, max_length=100
     )
 
     regex = ui.TextInput(
-        label="Regex", style=discord.TextStyle.long, max_length=2000, placeholder="(?i)flags have to be inline, like this! (python regex)"
+        label="Regex",
+        style=discord.TextStyle.long,
+        max_length=2000,
+        placeholder="(?i)flags have to be inline, like this! (python regex)",
     )
 
     async def on_submit(self, interaction: Interaction):
         try:
             async with self.bot.db_session.begin() as session:
-                newTag = models.Autoresponse()
-                newTag.tag_name = self.tagname.value
-                newTag.regex = re.compile(self.regex.value)
-                newTag.server_id = interaction.guild_id  # type: ignore
-                newTag.author_id = interaction.user.id
+                newResponse = models.Autoresponse()
+                newResponse.autoresponse_name = self.responsename.value
+                newResponse.tag_name = self.tagname.value
+                newResponse.regex = re.compile(self.regex.value)
+                newResponse.server_id = interaction.guild_id  # type: ignore
+                newResponse.author_id = interaction.user.id
 
-                session.add(newTag)
+                session.add(newResponse)
         except exc.IntegrityError:
             return await interaction.response.send_message(
-                "An integrity error occured whilst writing to the database. Does the tag already exist?",
+                "An integrity error occured whilst writing to the database. Did you use a unique Response ID?",
                 ephemeral=True,
             )
         else:
             await interaction.response.send_message(
-                "Your tag was created successfully.", ephemeral=True
+                "Your autoresponse was created successfully.", ephemeral=True
             )
 
 
@@ -165,14 +179,14 @@ class Tags(commands.Cog):
             return
 
         async with ctx.bot.db_session.begin() as session:
-            #tag_query = (
+            # tag_query = (
             #    select(models.Tag)
             #    .where(models.Tag.server_id == ctx.guild.id)
             #    .where(models.Tag.name == tag)
             #    .limit(1)
             #    .with_hint(models.Tag, "USE INDEX col1_index")
-            #)
-            #retrieved_tag = (await session.execute(tag_query)).scalar_one_or_none()
+            # )
+            # retrieved_tag = (await session.execute(tag_query)).scalar_one_or_none()
             retrieved_tag = await session.get(models.Tag, (ctx.guild.id, tag))
 
         if retrieved_tag is None:
@@ -199,19 +213,20 @@ class Tags(commands.Cog):
 
         embed.set_footer(
             text=f"Requested by {ctx.author} | Last updated",
-            icon_url=ctx.author.display_avatar.url
+            icon_url=ctx.author.display_avatar.url,
         )
 
         embed.timestamp = retrieved_tag.time_updated
 
-        return await ctx.reply(
-            target.mention,
-            embed=embed,
-            allowed_mentions=allowed_mentions,
-            mention_author=False
-        ) if target else await ctx.reply(
-            embed=embed,
-            allowed_mentions=allowed_mentions
+        return (
+            await ctx.reply(
+                target.mention,
+                embed=embed,
+                allowed_mentions=allowed_mentions,
+                mention_author=False,
+            )
+            if target
+            else await ctx.reply(embed=embed, allowed_mentions=allowed_mentions)
         )
 
     @tag.autocomplete("tag")  # type: ignore
@@ -258,15 +273,15 @@ class Tags(commands.Cog):
         if not ctx.guild:
             return
 
+        found = False
         async with ctx.bot.db_session.begin() as session:
-            tag_query = (
-                delete(models.Tag)
-                .where(models.Tag.server_id == ctx.guild.id)
-                .where(models.Tag.name == tag)
-            )
-            result = await session.execute(tag_query)
+            found_tag = await session.get(models.Tag, (ctx.guild.id, tag))
 
-        if result.rowcount == 0:  # type: ignore
+            if found_tag:
+                await session.delete(found_tag)
+                found = True
+
+        if found:
             return await ctx.reply("No tag was found.", ephemeral=True)
         else:
             return await ctx.reply("Tag deleted sucessfully.")
@@ -274,7 +289,7 @@ class Tags(commands.Cog):
     @tag_delete.autocomplete("tag")  # type: ignore
     async def tagdelcmd_autocomplete(self, interaction: Interaction, current: str):
         return await tag_autocomplete(interaction, current)
-    
+
     @app_commands.describe(tag="The tag to create")
     @commands.guild_only()
     @commands.hybrid_command(
@@ -282,10 +297,13 @@ class Tags(commands.Cog):
         description="Make the bot annoying! /s",
         default_permissions=discord.Permissions.advanced(),
     )
-    async def autoresponse_create(self, ctx: Context, tagname: str):
+    async def autoresponse_create(self, ctx: Context, tag: str):
         pass
 
-        
+    @tag_delete.autocomplete("tag")  # type: ignore
+    async def autoresponse_create_tag_autocomplete(self, interaction: Interaction, current: str):
+        return await tag_autocomplete(interaction, current)
+
     @commands.Cog.listener(name="on_message")
     async def autorespond(self, message: Message):
         if not message.guild:
@@ -304,7 +322,6 @@ class Tags(commands.Cog):
 
                     if autoresponse.tag:
                         return await message.reply(content=autoresponse.tag.content)
-
 
 
 async def setup(bot: Bot):
