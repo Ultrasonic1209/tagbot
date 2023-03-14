@@ -1,4 +1,5 @@
 from typing import List, Optional
+import datetime
 
 import discord
 from discord import ui
@@ -118,6 +119,13 @@ class Tags(commands.Cog):
         )
 
         embed.description = retrieved_tag.content
+
+        embed.set_footer(
+            text=f"Requested by {ctx.author} | Last updated",
+            icon_url=ctx.author.display_avatar.url
+        )
+
+        embed.timestamp = retrieved_tag.time_updated
 
         return await ctx.reply(
             target.mention,
