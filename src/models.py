@@ -1,7 +1,7 @@
 from typing import Set
 from datetime import datetime
 from sqlalchemy import String
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, PrimaryKeyConstraint
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
@@ -18,8 +18,6 @@ class Base(DeclarativeBase):
 class Tag(Base):
     __tablename__ = "tag"
 
-    tag_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-
     name: Mapped[str] = mapped_column(String(100))
     server_id: Mapped[int] = mapped_column(index=True)
     author_id: Mapped[int] = mapped_column()
@@ -31,6 +29,7 @@ class Tag(Base):
     )
 
     UniqueConstraint(server_id, name)
+    PrimaryKeyConstraint(server_id, name)
 
     autoresponses: Mapped[Set["Autoresponse"]] = relationship(back_populates="tag")
 
@@ -47,7 +46,7 @@ class Autoresponse(Base):
     phrase: Mapped[str] = mapped_column(String(4000))
     author_id: Mapped[int] = mapped_column()
 
-    tag_id: Mapped[int] = mapped_column(ForeignKey("tag.tag_id"))
+    tag_name: Mapped[int] = mapped_column(ForeignKey("tag.name"))
     tag: Mapped["Tag"] = relationship(back_populates="autoresponses")
 
     def __repr__(self) -> str:

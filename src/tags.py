@@ -17,7 +17,82 @@ from bot import Context
 from bot import Interaction
 
 
-class NewTagCreation(ui.Modal, title="New Tag"):
+class TagCreator(ui.Modal, title="New Tag"):
+    def __init__(self, bot: Bot, tagName: str):
+        super().__init__()
+
+        self.bot = bot
+
+        self.tagname.default = tagName
+
+    tagname = ui.TextInput(
+        label="Tag name", style=discord.TextStyle.short, max_length=100
+    )
+
+    tagcontent = ui.TextInput(
+        label="Tag content", style=discord.TextStyle.long, max_length=2000
+    )
+
+    async def on_submit(self, interaction: Interaction):
+        try:
+            async with self.bot.db_session.begin() as session:
+                newTag = models.Tag()
+                newTag.name = str(self.tagname)
+                newTag.content = str(self.tagcontent)
+                newTag.server_id = interaction.guild_id  # type: ignore
+                newTag.author_id = interaction.user.id
+
+                session.add(newTag)
+        except exc.IntegrityError:
+            return await interaction.response.send_message(
+                "An integrity error occured whilst writing to the database. Does the tag already exist?",
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                "Your tag was created successfully.", ephemeral=True
+            )
+
+class TagEditor(ui.Modal, title="Edit Tag"):
+    tag_name: str
+    def __init__(self, bot: Bot, tag_name: str, current_content: str):
+        super().__init__()
+
+        self.bot = bot
+
+        self.tag_name = tag_name
+
+        self.tagcontent.default = current_content
+
+    tagcontent = ui.TextInput(
+        label="Tag content", style=discord.TextStyle.long, max_length=2000
+    )
+
+    async def on_submit(self, interaction: Interaction):
+        try:
+            async with self.bot.db_session.begin() as session:
+                tag = await session.get(models.Tag, (interaction.guild_id, self.tag_name))
+                
+                if tag:
+                    tag.content = self.tagcontent.value
+                else:
+                    await session.rollback()
+                    return await interaction.response.send_message(
+                        "The tag you were editing could not be found. Was it deleted?",
+                        ephemeral=True,
+                    )
+        except exc.IntegrityError:
+            return await interaction.response.send_message(
+                "An integrity error occured whilst writing to the database. Does the tag already exist?",
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                "Your tag was created successfully.", ephemeral=True
+            )
+
+
+class AutoresponseCreator(ui.Modal, title="New Autoresponse"):
     def __init__(self, bot: Bot, tagName: str):
         super().__init__()
 
@@ -89,14 +164,15 @@ class Tags(commands.Cog):
             return
 
         async with ctx.bot.db_session.begin() as session:
-            tag_query = (
-                select(models.Tag)
-                .where(models.Tag.server_id == ctx.guild.id)
-                .where(models.Tag.name == tag)
-                .limit(1)
-                .with_hint(models.Tag, "USE INDEX col1_index")
-            )
-            retrieved_tag = (await session.execute(tag_query)).scalar_one_or_none()
+            #tag_query = (
+            #    select(models.Tag)
+            #    .where(models.Tag.server_id == ctx.guild.id)
+            #    .where(models.Tag.name == tag)
+            #    .limit(1)
+            #    .with_hint(models.Tag, "USE INDEX col1_index")
+            #)
+            #retrieved_tag = (await session.execute(tag_query)).scalar_one_or_none()
+            retrieved_tag = await session.get(models.Tag, (ctx.guild.id, tag))
 
         if retrieved_tag is None:
             return await ctx.reply("This tag does not exist.", ephemeral=True)
@@ -168,7 +244,7 @@ class Tags(commands.Cog):
         if retrieved_tag is not None:
             return await ctx.reply("This tag already exists.", ephemeral=True)
 
-        return await ctx.interaction.response.send_modal(NewTagCreation(self.bot, tag))
+        return await ctx.interaction.response.send_modal(TagCreator(self.bot, tag))
 
     @app_commands.describe(tag="The tag to create")
     @commands.guild_only()
@@ -197,7 +273,18 @@ class Tags(commands.Cog):
     @tag_delete.autocomplete("tag")  # type: ignore
     async def tagdelcmd_autocomplete(self, interaction: Interaction, current: str):
         return await tag_autocomplete(interaction, current)
+    
+    @app_commands.describe(tag="The tag to create")
+    @commands.guild_only()
+    @commands.hybrid_command(
+        name="autoresponse-create",
+        description="Make the bot annoying! /s",
+        default_permissions=discord.Permissions.advanced(),
+    )
+    async def autoresponse_create(self, ctx: Context, tagname: str):
+        pass
 
+        
     @commands.Cog.listener(name="on_message")
     async def autorespond(self, message: Message):
         if not message.guild:
