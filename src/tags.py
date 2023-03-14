@@ -1,3 +1,4 @@
+import re
 from typing import List, Optional
 import datetime
 
@@ -37,8 +38,8 @@ class TagCreator(ui.Modal, title="New Tag"):
         try:
             async with self.bot.db_session.begin() as session:
                 newTag = models.Tag()
-                newTag.name = str(self.tagname)
-                newTag.content = str(self.tagcontent)
+                newTag.name = self.tagname.value
+                newTag.content = self.tagcontent.value
                 newTag.server_id = interaction.guild_id  # type: ignore
                 newTag.author_id = interaction.user.id
 
@@ -83,12 +84,12 @@ class TagEditor(ui.Modal, title="Edit Tag"):
                     )
         except exc.IntegrityError:
             return await interaction.response.send_message(
-                "An integrity error occured whilst writing to the database. Does the tag already exist?",
+                "An integrity error occured whilst writing to the database. That should not happen...",
                 ephemeral=True,
             )
         else:
             await interaction.response.send_message(
-                "Your tag was created successfully.", ephemeral=True
+                "Your tag was edited successfully.", ephemeral=True
             )
 
 
@@ -104,16 +105,16 @@ class AutoresponseCreator(ui.Modal, title="New Autoresponse"):
         label="Tag name", style=discord.TextStyle.short, max_length=100
     )
 
-    tagcontent = ui.TextInput(
-        label="Tag content", style=discord.TextStyle.long, max_length=2000
+    regex = ui.TextInput(
+        label="Regex", style=discord.TextStyle.long, max_length=2000, placeholder="(?i)flags have to be inline, like this! (python regex)"
     )
 
     async def on_submit(self, interaction: Interaction):
         try:
             async with self.bot.db_session.begin() as session:
-                newTag = models.Tag()
-                newTag.name = str(self.tagname)
-                newTag.content = str(self.tagcontent)
+                newTag = models.Autoresponse()
+                newTag.tag_name = self.tagname.value
+                newTag.regex = re.compile(self.regex.value)
                 newTag.server_id = interaction.guild_id  # type: ignore
                 newTag.author_id = interaction.user.id
 
@@ -298,11 +299,12 @@ class Tags(commands.Cog):
             autoresponses = (await session.execute(autoresponse_query)).scalars().all()
 
             for autoresponse in autoresponses:
-                if autoresponse.phrase in message.content:
+                if autoresponse.regex.match(message.content):
                     await session.refresh(autoresponse, ("tag",))
 
                     if autoresponse.tag:
                         return await message.reply(content=autoresponse.tag.content)
+
 
 
 async def setup(bot: Bot):

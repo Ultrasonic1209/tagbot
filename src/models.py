@@ -1,5 +1,7 @@
 from typing import Set
 from datetime import datetime
+import re
+
 from sqlalchemy import String
 from sqlalchemy import ForeignKey, PrimaryKeyConstraint
 from sqlalchemy import UniqueConstraint
@@ -10,6 +12,25 @@ from sqlalchemy.orm import relationship
 
 __all__ = ["Base", "Tag", "Autoresponse"]
 
+import sqlalchemy.types as types
+
+class Regex(types.TypeDecorator):
+    '''Prefixes Unicode values with "PREFIX:" on the way in and
+    strips it off on the way out.
+    '''
+
+    impl = types.String
+
+    cache_ok = True
+
+    def process_bind_param(self, value: str, dialect) -> re.Pattern:
+        return re.compile(pattern=value)
+
+    def process_result_value(self, value: re.Pattern, dialect) -> str:
+        return value.pattern
+
+    def copy(self, **kw):
+        return Regex(self.impl.length) # type: ignore
 
 class Base(DeclarativeBase):
     pass
@@ -41,12 +62,12 @@ class Autoresponse(Base):
     __tablename__ = "autoresponse"
 
     response_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    server_id: Mapped[int] = mapped_column(index=True)
+    server_id: Mapped[int] = mapped_column(ForeignKey("tag.server_id"), index=True)
 
-    phrase: Mapped[str] = mapped_column(String(4000))
+    regex: Mapped[re.Pattern] = mapped_column(Regex(4000))
     author_id: Mapped[int] = mapped_column()
 
-    tag_name: Mapped[int] = mapped_column(ForeignKey("tag.name"))
+    tag_name: Mapped[str] = mapped_column(ForeignKey("tag.name"))
     tag: Mapped["Tag"] = relationship(back_populates="autoresponses")
 
     def __repr__(self) -> str:
