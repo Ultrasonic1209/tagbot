@@ -25,6 +25,7 @@ class BotConfig(TypedDict):
     BotToken: str
     CommandPrefix: str
     DBPath: str
+    EmbedColour: int
 
 class Bot(commands.Bot):
     """
@@ -66,14 +67,14 @@ class Message(discord.Message):
 
 class Context(commands.Context):
     """
-    Making Context use the Bot subclass
+    Uses the Bot subclass
     """
     bot: Bot
     message: Message
 
 class Interaction(discord.Interaction):
     """
-    Making Context use the Bot subclass
+    Uses the Bot subclass
     """
     client: Bot
 
@@ -91,7 +92,8 @@ if __name__ == "__main__":
     botConfig = BotConfig(
         BotToken=botsection.get("BotToken"),
         CommandPrefix=botsection.get("BotPrefix", ">"),
-        DBPath=dbsection.get("DBPath", "db.sqlite")
+        DBPath=dbsection.get("DBPath", "db.sqlite"),
+        EmbedColour=int(botsection.get("EmbedColour", "0xDCD3B9"), 0)
     )
 
     logger.info(botConfig)
