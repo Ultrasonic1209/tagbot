@@ -114,7 +114,7 @@ class Tags(commands.Cog):
         embed.set_author(
             name=tag_author.display_name if tag_author else str(retrieved_tag.author_id),
             icon_url=tag_author.display_avatar.url if tag_author else None,
-            url=f"discord://-/users/{retrieved_tag.author_id}"
+            #url=f"discord://-/users/{retrieved_tag.author_id}"
         )
 
         embed.description = retrieved_tag.content
